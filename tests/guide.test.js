@@ -159,8 +159,10 @@ t('clubDir khớp posebins.club_dir trên lưới', () => {
   assert.strictEqual(G.clubDir(null, 0), null);
 });
 t('club: cửa sổ khớp Python (hằng số)', () => {
-  const py = require('child_process').execFileSync('python3', ['-c',
-    "import sys,json;sys.path.insert(0,'.');from common import posebins as p;print(json.dumps({'w':p.CLUB_WINDOWS,'t':p.CLUB_TARGETS,'d':p.CLUB_DIRS,'l':p.CLUB_LABELS}))"], { cwd: path.join(__dirname, '..') });
+  const cp = require('child_process');
+  const pyCmd = (() => { try { cp.execFileSync('python3', ['--version']); return 'python3'; } catch (_) { return 'python'; } })();
+  const py = cp.execFileSync(pyCmd, ['-c',
+    "import sys,json;sys.path.insert(0,'.');from common import posebins as p;print(json.dumps({'w':p.CLUB_WINDOWS,'t':p.CLUB_TARGETS,'d':list(p.CLUB_DIRS),'l':p.CLUB_LABELS}))"], { cwd: path.join(__dirname, '..') });
   const j = JSON.parse(py);
   assert.deepStrictEqual(G.CLUB_DIRS, j.d); assert.deepStrictEqual(G.CLUB_WINDOWS, j.w);
   assert.deepStrictEqual(G.CLUB_TARGETS, j.t); assert.deepStrictEqual(G.CLUB_LABELS, j.l);
@@ -192,7 +194,9 @@ t('ClubScan: 5 chặng tuần tự, cần đủ khung tốt và thời gian gi�
 });
 t('ClubScan: khung không được giữ / sai hướng không tính; hết giờ thì đánh dấu yếu', () => {
   const sc = new G.ClubScan({ timeout: 3000 }); sc.begin(0);
-  let r = sc.update({ state: 'ok', dir: 'front', pitch: 0, yaw: 0, kept: false }, 100); assert.strictEqual(sc.got.front, 0);
+  let r = sc.update({ state: 'ok', dir: 'front', pitch: 0, yaw: 0, kept: false }, 100);
+  assert.strictEqual(sc.got.front, 0);                             // kept=false: không tính vào got
+  assert.match(r.hint, /đúng rồi|di chuyển/i);                    // nhưng hint phải hướng dẫn tiếp
   r = sc.update({ state: 'ok', dir: 'left', pitch: 0, yaw: 40, kept: true }, 200); assert.strictEqual(sc.got.front, 0);
   assert.strictEqual(r.arrow.x, 1);                                // đang quay trái trong khi cần thẳng -> về phải
   r = sc.update({ state: 'no_face' }, 300); assert.match(r.hint, /chưa thấy mặt/i);
@@ -200,6 +204,17 @@ t('ClubScan: khung không được giữ / sai hướng không tính; hết gi�
   r = sc.update({ state: 'no_face' }, 3500);
   assert.strictEqual(r.advanced, true); assert.strictEqual(sc.state.front, 'weak');
   assert.strictEqual(sc.current(), 'left');
+});
+t('ClubScan: hint khi kept=true là "Đang ghi", khi chuyển hướng là CLUB_TEXT mới', () => {
+  const sc = new G.ClubScan({}); sc.begin(0);
+  const T = (d) => G.CLUB_TARGETS[d];
+  const good = (d, kept = true) => ({ state: 'ok', dir: d, pitch: T(d)[0], yaw: T(d)[1], kept });
+  const r = sc.update(good('front', true), 50);
+  assert.ok(r.good === true);
+  assert.match(r.hint, /📷|ghi/i);                                // hint phải đề cập "ghi"
+  const r2 = sc.update(good('front', false), 100);
+  assert.ok(r2.good === false); assert.strictEqual(sc.got.front, 1); // got không tăng thêm
+  assert.match(r2.hint, /di chuyển|đúng/i);                      // vẫn hướng dẫn nhẹ nhàng
 });
 t('ClubScan: làm lại hướng yếu / làm lại chặng / làm lại từ đầu', () => {
   const sc = new G.ClubScan({}); sc.begin(0);

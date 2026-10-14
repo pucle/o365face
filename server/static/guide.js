@@ -385,7 +385,7 @@
     var txt;
     if (dx >= dy) txt = ax < 0 ? 'Quay sang TRÁI thêm' : 'Quay sang PHẢI thêm';
     else txt = ay < 0 ? 'Ngẩng thêm' : 'Cúi thêm';
-    if (dir === 'front') txt = dx >= dy ? (ax < 0 ? 'Quay mặt lại gần giữa (hơi sang phải)' : 'Quay mặt lại gần giữa (hơi sang trái)') : (ay < 0 ? 'Ngẩng lên một chút' : 'Cúi xuống một chút');
+    if (dir === 'front') txt = dx >= dy ? (ax < 0 ? 'Quay mặt lại gần giữa (hơi sang trái)' : 'Quay mặt lại gần giữa (hơi sang phải)') : (ay < 0 ? 'Ngẩng lên một chút' : 'Cúi xuống một chút');
     return { ok: false, arrow: { x: ax, y: ay }, text: txt };
   }
 
@@ -415,14 +415,18 @@
     var self = this; this.order = dirs.slice(); this.idx = 0; this.got = {}; this.state = {};
     this.order.forEach(function (d) { self.got[d] = 0; self.state[d] = 'todo'; }); this.begin(now);
   };
-  /* obs: kết quả server cho một khung {state, dir, pitch, yaw, kept}. Trả về {dir, hint, arrow, good, advanced, finished, phase}. */
+  /* obs: kết quả server cho một khung {state, dir, pitch, yaw, kept}.
+   * Hệ thống đang GHI VIDEO LIÊN TỤC — không cần người giữ yên, chỉ cần đúng hướng và di chuyển rất chậm.
+   * Trả về {dir, hint, arrow, good, advanced, finished, phase}. */
   ClubScan.prototype.update = function (obs, now) {
     var d = this.current();
     if (!d) return { dir: null, finished: true, hint: '', arrow: { x: 0, y: 0 }, good: false, advanced: false };
     if (this.t0 == null) this.begin(now);
     var good = false, hint, arrow = { x: 0, y: 0 };
     if (obs && obs.state === 'ok' && obs.dir === d) {
-      hint = 'Tốt, giữ nguyên'; if (obs.kept) { this.got[d]++; good = true; }
+      // Đang đúng hướng — hệ thống tự ghi, người chỉ cần giữ tư thế và di chuyển rất chậm
+      if (obs.kept) { this.got[d]++; good = true; hint = '📷 Đang ghi — di chuyển chậm nhẹ trong khung này'; }
+      else { hint = 'Đúng rồi — di chuyển chậm để lấy thêm ảnh'; }
     } else if (obs && CLUB_STATE_TEXT[obs.state]) {
       hint = CLUB_STATE_TEXT[obs.state];
     } else if (obs && obs.pitch != null) {

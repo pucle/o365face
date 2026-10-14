@@ -142,11 +142,16 @@
     }
     var res = sc.update(obs, now);
     if (resp.warning) { $('eInstr').className = 'instr bad'; $('eText').textContent = resp.warning; }
-    else if (!res.finished) instr(res.hint, res.arrow, res.good || obs.state === 'ok' && obs.dir === res.dir ? 'ok' : (G().CLUB_STATE_TEXT[obs.state] ? 'bad' : ''));
+    // ok nếu đang đúng hướng (dù kept hay chưa) — xanh lá để người biết tư thế đúng
+    else if (!res.finished) instr(res.hint, res.arrow, obs.state === 'ok' && obs.dir === res.dir ? 'ok' : (G().CLUB_STATE_TEXT[obs.state] ? 'bad' : ''));
     $('eStageBox').classList.toggle('good', !!res.good);
     if (res.good) { var f = $('eFlash'); f.classList.add('on'); setTimeout(function () { f.classList.remove('on'); }, 70); }
     renderChips();
-    if (res.advanced && !res.finished) { speak('Xong. ' + G().CLUB_TEXT[sc.current()]); instr('Tiếp: ' + G().CLUB_TEXT[sc.current()], null, ''); }
+    if (res.advanced && !res.finished) {
+      var nextDir = sc.current();
+      speak('Chuyển sang: ' + G().CLUB_TEXT[nextDir]);
+      instr('➡ Chuyển sang: ' + G().CLUB_LABELS[nextDir], null, '');
+    }
     if (res.finished) finishScan();
   }
 
