@@ -1,0 +1,23 @@
+# Render (gói free 512 MB RAM) — chế độ "lite": buffalo_s, không nạp model góc đầu 3D, 1 luồng ONNX.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential g++ libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 INSIGHTFACE_HOME=/app/.insightface \
+    LITE_MODE=1 MODEL_NAME=buffalo_s OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MALLOC_ARENA_MAX=2
+WORKDIR /app
+
+COPY requirements-server.txt .
+RUN pip install --no-cache-dir cython "numpy<2" && pip install --no-cache-dir -r requirements-server.txt
+
+# Tải model lúc build, rồi xoá các model không dùng (3D 143 MB, landmark 2D, giới tính/tuổi) cho nhẹ ảnh Docker
+RUN python -c "from insightface.app import FaceAnalysis; FaceAnalysis(name='buffalo_s', root='/app/.insightface', providers=['CPUExecutionProvider'], allowed_modules=['detection','recognition'])" \
+ && cd /app/.insightface/models/buffalo_s && rm -f 1k3d68.onnx 2d106det.onnx genderage.onnx && ls -la
+
+COPY . .
+
+# APP_ENTRY=server.enroll_app:app  -> giai đoạn 1: chỉ thu thập khuôn mặt
+# APP_ENTRY=server.app:app         -> giai đoạn 2: đủ chức năng (đặt thêm APP_MODE=full)
+ENV APP_ENTRY=server.enroll_app:app
+CMD ["sh", "-c", "exec uvicorn ${APP_ENTRY} --host 0.0.0.0 --port ${PORT:-10000} --workers 1 --timeout-keep-alive 20"]

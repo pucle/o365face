@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Điểm danh CLB</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Ccircle cx=%278%27 cy=%278%27 r=%277%27 fill=%27%232563eb%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header>
+  <div class="brand">Điểm danh CLB</div>
+  <nav id="nav">
+    <a href="#status">Tổng quan</a>
+    <a href="#members">Thành viên</a>
+    <a href="#enroll">Đăng ký mặt</a>
+    <a href="#import">Nhập dataset</a>
+    <a href="#shifts">Ca trực</a>
+    <a href="#cameras">Camera</a>
+    <details class="more"><summary>Thử nghiệm</summary><div><a href="#lab">Thử nhận diện</a><a href="#door">Thử check-in</a></div></details>
+    <a href="#settings">Cài đặt</a>
+  </nav>
+  <div class="who"><span id="conn" class="dot"></span><button id="btnToken" class="ghost">Token</button></div>
+</header>
+
+<main>
+<!-- ============ Tổng quan ============ -->
+<section id="page-status" class="page">
+  <div class="cards">
+    <div class="card big"><div class="k">Trong phòng</div><div class="v" id="stRoom">–</div><div class="s" id="stRoomSub"></div></div>
+    <div class="card big"><div class="k">Hệ thống</div><div class="v" id="stOpen">–</div><div class="s" id="stEngine"></div></div>
+    <div class="card big"><div class="k">Dữ liệu</div><div class="v" id="stCounts">–</div><div class="s">thành viên / mẫu mặt</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><h3>Đang hiện diện</h3><div id="stPeople" class="list"></div></div>
+    <div class="panel"><h3>Ca trực hôm nay</h3><div id="stShifts" class="list"></div></div>
+  </div>
+  <div class="panel">
+    <div class="row"><h3>Lịch sử &amp; cảnh báo</h3>
+      <select id="hCat"><option value="alert">Cảnh báo</option><option value="checkin">Check-in / check-out</option><option value="all">Tất cả</option></select>
+      <input type="date" id="hDay" title="Lọc theo ngày (để trống = mới nhất)"></div>
+    <div id="stEvents" class="list small"></div>
+    <p class="hint">Cảnh báo gồm: người lạ trước cửa, người lạ trong phòng, thành viên rời phòng / vắng mặt, thấy trong phòng mà chưa check-in. Lưu trong CSDL (<span id="hDb">–</span>).</p>
+  </div>
+</section>
+
+<!-- ============ Thành viên ============ -->
+<section id="page-members" class="page">
+  <div class="panel">
+    <h3>Thêm thành viên</h3>
+    <form id="fMember" class="row">
+      <input id="mId" placeholder="Mã (vd: an01, không dấu)" required pattern="[A-Za-z0-9_.\-]+">
+      <input id="mName" placeholder="Họ và tên" required>
+      <button class="primary">Thêm / sửa tên</button>
+    </form>
+    <p class="hint">Chỉ lưu vector đặc trưng khuôn mặt, không lưu ảnh. Việc xin đồng ý của thành viên do CLB tự thực hiện trước khi chụp.</p>
+  </div>
+  <div id="memberSummary" class="panel small"></div>
+  <div id="memberList" class="members"></div>
+</section>
+
+<!-- ============ Đăng ký mặt (kiểu CLB) ============ -->
+<section id="page-enroll" class="page">
+  <div id="enSetup" class="panel enroll-setup">
+    <h3>Đăng ký khuôn mặt</h3>
+    <p class="hint big">Làm 5 động tác theo thứ tự: nhìn thẳng → quay trái → quay phải → ngẩng → cúi. Hệ thống tự chụp liên tục và chọn khoảng 24 ảnh tốt nhất. Mất khoảng 20–30 giây.</p>
+    <div class="row wrap">
+      <label>Thành viên <select id="eMember"></select></label>
+      <button id="eStart" class="primary xl">Bắt đầu</button>
+    </div>
+    <div id="eCover" class="small"></div>
+    <details class="adv">
+      <summary>Nâng cao</summary>
+      <div class="row wrap">
+        <label>Số mẫu giữ lại (20–30) <input type="number" id="eTarget" value="24" min="20" max="30"></label>
+        <label>Khi đăng ký lại <select id="eMode"><option value="add">Bổ sung vào mẫu đã có</option><option value="replace">Thay thế mẫu cũ</option></select></label>
+        <label>Camera <select id="eDevice" data-role="enroll"></select></label>
+        <label class="chk"><input type="checkbox" id="eVoice"> Đọc hướng dẫn bằng giọng nói</label>
+      </div>
+      <p class="hint">Có sẵn ảnh/video của CLB? Dùng trang <a href="#import">Nhập dataset</a>.</p>
+    </details>
+  </div>
+
+  <div id="enStage" class="hidden">
+    <div id="eChips" class="phasechips"></div>
+    <div class="stage big" id="eStageBox">
+      <video id="eVideo" playsinline muted></video>
+      <canvas id="eOverlay"></canvas>
+      <div id="eCount" class="count hidden"></div>
+      <div id="eFlash" class="flash"></div>
+    </div>
+    <div class="instr" id="eInstr" aria-live="polite"><span id="eArrow" class="bigarrow">•</span><span id="eText">Chuẩn bị…</span></div>
+    <div class="bar"><div id="eBar"></div></div>
+    <div class="row wrap center">
+      <button id="eRedoStep" class="ghost">Làm lại bước này</button>
+      <button id="eRedoAll" class="ghost">Làm lại từ đầu</button>
+      <button id="eStop" class="ghost">Dừng</button>
+    </div>
+  </div>
+
+  <div id="enResult" class="panel hidden">
+    <h3 id="rTitle">Kết quả</h3>
+    <div id="rVerdict" class="verdict"></div>
+    <div id="rDirs" class="rdirs"></div>
+    <div id="rInfo" class="small"></div>
+    <div class="row wrap">
+      <button id="eSave" class="primary xl">Lưu</button>
+      <button id="eRedoWeak" class="ghost hidden">Làm lại hướng yếu</button>
+      <button id="eDiscard" class="ghost">Bỏ, làm lại từ đầu</button>
+      <button id="eNext" class="ghost hidden">Đăng ký người tiếp theo</button>
+      <button id="eUndo" class="ghost hidden">Hoàn tác lần lưu này</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Nhập dataset ============ -->
+<section id="page-import" class="page">
+  <div class="panel">
+    <h3>Nhập dataset đã thu sẵn của CLB</h3>
+    <p class="hint">Mỗi thành viên một thư mục (tên hoặc mã thành viên), bên trong là ảnh/video: <b>nhìn chính diện</b>, <b>quay trái ~45°</b>, <b>quay phải ~45°</b>, <b>ngẩng</b> và <b>cúi ~45°</b>. Chọn thư mục gốc chứa các thư mục thành viên. Video được cắt khung ngay trên trình duyệt; ảnh HEIC của iPhone không đọc được — hãy gửi/xuất sang JPG.</p>
+    <div class="row wrap">
+      <label>Thư mục dataset <input type="file" id="iDir" webkitdirectory directory multiple></label>
+      <label>Hoặc chọn nhiều file cho <b>một</b> người <input type="file" id="iFiles" multiple accept="image/*,video/*"></label>
+    </div>
+    <div class="row wrap">
+      <label>Chất lượng ảnh theo <select id="iSource"><option value="door">Cam cửa (mặt rõ, khuyến nghị cho ảnh điện thoại)</option><option value="room">Cam trần (chấp nhận ảnh nhỏ/mờ hơn)</option></select></label>
+      <label>Số mẫu giữ lại mỗi người (20–30) <input type="number" id="iTarget" value="24" min="20" max="30"></label>
+      <label>Khi người đã có mẫu <select id="iMode"><option value="add">Bổ sung</option><option value="replace">Thay thế</option></select></label>
+      <label>Augmentation <select id="iAug"><option value="auto">Tự động (chỉ khi thiếu dữ liệu)</option><option value="off">Tắt</option></select></label>
+      <label class="chk"><input type="checkbox" id="iCreate" checked> Tạo thành viên mới nếu chưa có</label>
+    </div>
+  </div>
+  <div class="panel hidden" id="iPreviewBox">
+    <h3>Xem trước</h3>
+    <div id="iPreview"></div>
+    <div class="row" style="margin-top:8px"><button id="iGo" class="primary">Nhập vào hệ thống</button><button id="iCancel" class="ghost">Dừng</button></div>
+  </div>
+  <div class="panel hidden" id="iResultBox"><h3>Kết quả</h3><div id="iResult"></div></div>
+</section>
+
+<!-- ============ Thử nhận diện ============ -->
+<section id="page-lab" class="page">
+  <div class="panel">
+    <div class="row wrap">
+      <label>Ngữ cảnh <select id="lContext"><option value="room">Cam trần (ngưỡng thấp hơn cho góc cao)</option><option value="door">Cam cửa</option></select></label>
+      <label>Nguồn <select id="lSource"><option value="cam">Webcam</option><option value="img">Ảnh tải lên</option></select></label>
+      <label>Camera <select id="lDevice" data-role="lab"></select></label>
+      <button id="lStart" class="primary">Bật</button><button id="lStop" class="ghost">Tắt</button>
+      <input type="file" id="lFile" accept="image/*" class="hidden">
+    </div>
+    <div class="row wrap">
+      <label class="chk"><input type="checkbox" id="lRecord"> Ghi vào hệ thống hiện diện (giả lập cam trần, chỉ với ngữ cảnh “cam trần”)</label>
+      <button id="lStranger" class="ghost">Lưu mặt trong khung là “người lạ”</button>
+    </div>
+  </div>
+  <div class="hud">
+    <div class="stage"><video id="lVideo" playsinline muted></video><img id="lImg" class="hidden"><canvas id="lOverlay"></canvas></div>
+    <div class="side"><h3>Kết quả</h3><div id="lList" class="list small"></div></div>
+  </div>
+  <p class="hint">Màu xanh: nhận ra. Cam: giống nhưng không đủ chắc (thấp điểm hoặc lệch kém giữa 2 người). Đỏ: không phải ai trong danh sách. Thử cúi đầu / nghiêng người để xem điểm giảm bao nhiêu.</p>
+</section>
+
+<!-- ============ Thử check-in ============ -->
+<section id="page-door" class="page">
+  <div class="panel">
+    <div class="row wrap">
+      <label>Camera <select id="dDevice" data-role="door"></select></label>
+      <button id="dStart" class="primary">Bật chế độ cửa</button><button id="dStop" class="ghost">Tắt</button>
+    </div>
+    <p class="hint">Điều kiện coi là “có người đến check-in”: đúng một mặt, rộng ≥ 90 px (khung 480 px), nhìn khá thẳng, giữ ổn định ≥ 0,7 giây. Khi đủ điều kiện hệ thống chụp 4 khung liên tiếp, bỏ phiếu rồi check-in. Sau đó nghỉ 20 giây.</p>
+  </div>
+  <div class="hud">
+    <div class="stage"><video id="dVideo" playsinline muted></video><canvas id="dOverlay"></canvas><div id="dBanner" class="banner">–</div></div>
+    <div class="side"><div class="bar"><div id="dProg"></div></div><div id="dState" class="small"></div><h3>Kết quả</h3><div id="dResult" class="list small"></div></div>
+  </div>
+</section>
+
+<!-- ============ Ca trực ============ -->
+<section id="page-shifts" class="page">
+  <div class="grid2">
+    <div class="panel">
+      <h3>Thêm ca trực</h3>
+      <form id="fShift" class="col">
+        <label>Thành viên <select id="sMember" required></select></label>
+        <label>Ngày <input type="date" id="sDate" required></label>
+        <div class="row"><label>Từ <input type="time" id="sStart" value="08:00" required></label><label>Đến <input type="time" id="sEnd" value="10:00" required></label></div>
+        <button class="primary">Thêm ca</button>
+      </form>
+    </div>
+    <div class="panel">
+      <div class="row"><h3>Ca trực &amp; báo cáo</h3><input type="date" id="rDate"><button id="rCsv" class="ghost">Tải CSV</button></div>
+      <div id="rTable"></div>
+      <div id="rOcc" class="small"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Camera ============ -->
+<section id="page-cameras" class="page">
+  <div class="panel">
+    <h3>1. Camera của trình duyệt (máy đang mở trang này)</h3>
+    <p class="hint">Chọn camera riêng cho từng việc. Lựa chọn được nhớ trên trình duyệt này và tự áp dụng ở các trang tương ứng. Tên camera chỉ hiện sau khi bạn cho phép dùng camera (bấm “Cho phép &amp; làm mới”).</p>
+    <div class="row wrap"><button id="camPerm" class="primary">Cho phép &amp; làm mới danh sách</button><span id="camMsg" class="small"></span></div>
+    <div class="cams">
+      <div class="camcard"><h4>Đăng ký mặt</h4><select id="camEnroll" data-role="enroll"></select><div class="stage mini"><video id="pvEnroll" playsinline muted></video></div><button class="ghost pv" data-for="camEnroll" data-v="pvEnroll">Xem thử</button></div>
+      <div class="camcard"><h4>Cửa (check-in)</h4><select id="camDoor" data-role="door"></select><div class="stage mini"><video id="pvDoor" playsinline muted></video></div><button class="ghost pv" data-for="camDoor" data-v="pvDoor">Xem thử</button></div>
+      <div class="camcard"><h4>Nhận diện / thử trong phòng</h4><select id="camLab" data-role="lab"></select><div class="stage mini"><video id="pvLab" playsinline muted></video></div><button class="ghost pv" data-for="camLab" data-v="pvLab">Xem thử</button></div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>2. Camera cho máy tính chạy client ở CLB (USB hoặc camera mạng)</h3>
+    <p class="hint">Dùng khi để một máy tính cố định chạy <code>door_client.py</code> / <code>room_client.py</code>. Điền số webcam (0, 1, 2…) hoặc địa chỉ <code>rtsp://user:mật-khẩu@IP:554/…</code>. Client chạy với <code>--source auto</code> (mặc định) sẽ tự lấy nguồn này từ server. Địa chỉ RTSP có mật khẩu được lưu ở CSDL server: chỉ người có API token xem được.</p>
+    <div class="grid2">
+      <div class="col"><h4>Cam cửa (check-in)</h4><label>Nguồn<input id="srcDoor" placeholder="0 hoặc rtsp://…"></label><label>Ghi chú<input id="lblDoor" placeholder="vd: webcam Logitech ở cửa"></label></div>
+      <div class="col"><h4>Cam trần (nhận diện trong phòng)</h4><label>Nguồn<input id="srcRoom" placeholder="1 hoặc rtsp://…"></label><label>Ghi chú<input id="lblRoom" placeholder="vd: camera IP Tapo C200"></label></div>
+    </div>
+    <div class="row"><button id="camSave" class="primary">Lưu</button><span id="camSaveMsg" class="small"></span></div>
+    <p class="hint">Không biết số nào? Trên máy CLB chạy <code>python client/camera_list.py --save</code> để thấy camera nào mở được và xem ảnh chụp thử.</p>
+  </div>
+</section>
+
+<!-- ============ Cài đặt ============ -->
+<section id="page-settings" class="page">
+  <div class="grid2">
+    <div class="panel"><h3>Hiệu chỉnh ngưỡng</h3><div id="cSummary"></div><canvas id="cHist" width="560" height="180"></canvas>
+      <div id="cWarn" class="warn"></div><div class="row"><button id="cApply" class="primary">Áp dụng ngưỡng đề xuất</button><button id="cClear" class="ghost">Xoá mẫu người lạ</button></div>
+      <div id="cView" class="small"></div></div>
+    <div class="panel"><h3>Kết nối</h3>
+      <label>Địa chỉ server (để trống = cùng máy chủ với trang này)<input id="apiBase" placeholder="https://ten-ban-space.hf.space"></label>
+      <div class="row"><button id="apiBaseSave" class="primary">Lưu địa chỉ</button><button id="apiPing" class="ghost">Kiểm tra kết nối</button></div><div id="apiPingOut" class="small"></div></div>
+    <div class="panel"><h3>Tham số</h3><form id="fSettings" class="col"></form><div class="row"><button id="sSave" class="primary">Lưu tham số</button><button id="bBackup" class="ghost">Tải sao lưu CSDL</button></div></div>
+  </div>
+</section>
+</main>
+
+<dialog id="dlgToken"><form method="dialog"><h3>API token</h3><p class="hint">Giá trị biến <code>API_TOKEN</code> của server. Lưu trong trình duyệt này.</p>
+<input id="tokenInput" type="password" placeholder="API token" autocomplete="off"><div class="row"><button class="primary" value="ok">Lưu</button></div></form></dialog>
+<div id="toast"></div>
+<script src="config.js"></script>
+<script src="import.js"></script>
+<script src="cameras.js"></script>
+<script src="enroll.js"></script>
+<script src="guide.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

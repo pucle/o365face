@@ -1,0 +1,7 @@
+data/
+*.zip
+__pycache__/
+*.pyc
+.git/
+.venv/
+tests/e2e/

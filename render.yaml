@@ -1,0 +1,25 @@
+# Render Blueprint: New + > Blueprint, trỏ vào repo này. Điền 2 biến "sync: false" khi được hỏi.
+services:
+  - type: web
+    name: club-attendance
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: API_TOKEN          # chuỗi dài ngẫu nhiên, dùng làm mật khẩu API (UI hỏi token này)
+        sync: false
+      - key: DATABASE_URL       # chuỗi kết nối Neon (nên dùng bản "pooled", có -pooler trong host)
+        sync: false
+      - key: APP_ENTRY          # giai đoạn 1: server.enroll_app:app  | giai đoạn 2: server.app:app
+        value: server.enroll_app:app
+      - key: APP_MODE           # giai đoạn 1: enroll | giai đoạn 2: full
+        value: enroll
+      - key: LITE_MODE
+        value: "1"
+      - key: MODEL_NAME
+        value: buffalo_s
+      - key: TZ_NAME
+        value: Asia/Ho_Chi_Minh

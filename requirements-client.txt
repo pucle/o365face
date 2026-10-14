@@ -1,0 +1,5 @@
+numpy<2
+opencv-python<5
+requests
+tzdata
+# chỉ cần cho client/room_client.py ở chế độ --mode yolo (cài thêm: pip install ultralytics)

@@ -1,0 +1,10 @@
+numpy<2
+cython
+opencv-python-headless<5
+onnxruntime
+insightface==0.7.3
+fastapi
+uvicorn
+python-multipart
+tzdata
+psycopg[binary]>=3.1
